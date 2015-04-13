@@ -1,0 +1,106 @@
+--- design.txt	2007-04-23 22:18:59.000000000 +0200
++++ design.new.txt	2007-04-24 08:59:05.000000000 +0200
+@@ -15,7 +15,7 @@
+ 
+ The general idea behind this proposal is to provide an additional mechanism for
+ the persistent object definition with plain POPOs (Plain Old PHP Objects), which
+-means all informations are stored in a single place and that there is no need of
++means all information is stored in a single place and that there is no need of
+ an external definition file.
+ 
+ Introduction and arrangement
+@@ -35,32 +35,36 @@
+ ---------------
+ 
+ @Persistent
+-  The persistent annotation must be placed in the class doc comment block to
+-  mark a class as persistable. This tag also achieves a second function the
+-  connection to the database table, whose name must be passed as tag argument.
++  The persistent annotation must be placed in the class level doc block to
++  mark a class as persistable. This tag also achieves a second function, the
++  connection to the database table, whose name must be passed as a tag argument.
+   
+   Allowed annotation parameters
+   
+   - table: This parameter has the database table name as value. For every
+     persistent class this parameter is mandatory.
+ 
++  Example: ::
++
++    @Persistent TableName
++
+ @Property
+   The property annotation describes a persistent object property. For real
+-  object properties this tag should be declared in the related php doc comment.
+-  In addition to the property doc comment this annotation must be applicable
+-  independent of a concrete property in connection with magic properties.
+-  Thinkable places are class doc comments or N annotation tags in the doc
+-  comment of single array property.
++  object properties this tag should be declared in the doc block related to the
++  property. In addition to the property doc comment this annotation must be
++  applicable independent of a concrete property in connection with magic
++  properties. Imaginable places are the class level doc block or multiple
++  annotation tags in the doc block of single array property (e.g. $properties).
+   
+   Allowed annotation parameters
+   
+   - property: This parameter contains the property name that's used in the
+     object state array. For all magic properties this value is mandatory but for
+-    concrete properties it would be nice to allow reusing property names and
+-    make this optional.
++    concrete properties it would be nice to allow recycling of property names and
++    to make this optional.
+   
+-  - column: The column parameter has the database column name that maps the
+-    object property. This parameter is mandatory.
++  - column: The column parameter refers to the database column name that maps
++    to the object property. This parameter is mandatory.
+   
+   - type: This parameter reflects the property type. The type parameter is
+     mandatory and uses a limited set of possible values.
+@@ -75,19 +79,25 @@
+       
+       - object
+ 
++   Example: ::
++
++    <<example here>>
++
++<<Object und Array sind in PersistentObject nicht implementiert!>>
++
+ @IdProperty
+-  This annotation marks the persistent object identifier. For this tag the same
+-  placement rules apply, as for normal @Property annotations.
++  This annotation declares the persistent object identifier property. For this
++  tag the same placement rules apply, as for normal @Property annotations.
+   
+   Allowed annotation parameters
+   
+   - property: This parameter contains the property name that's used in the
+     object state array. For all magic properties this value is mandatory but for
+-    concrete properties it would be nice to allow reusing property names and
+-    make this an optional parameter.
++    concrete properties it would be nice to allow recycling of property names and
++    to make this optional.
+   
+-  - column: The column parameter has the database column name that maps the
+-    object property. This parameter is mandatory.
++  - column: The column parameter refers to the database column name that maps
++    to the object property. This parameter is mandatory.
+   
+   - generator: The generator parameter is mandatory and defines the used object
+     identifier generation strategy. This property has a limited set of possible
+@@ -99,9 +109,12 @@
+     
+     - sequence
+ 
++<<Ich würde die echten Klassennamen als Parameter verwenden, um eigene
++Implementierungen zu ermöglichen>>
++
+ @OneToOne
+   With this annotation a relation (1:1) can be defined. Possible notation scopes
+-  are are the class doc comment, which will mean the object identifier is one
++  are are the class level doc block, which will mean the object identifier is one
+   part of the relation, and a property comment block, which marks the property
+   value as relation key.
+   

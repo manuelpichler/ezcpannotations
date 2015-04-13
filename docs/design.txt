@@ -1,0 +1,626 @@
+eZ component: PersistentOject (Annotation addon), Design
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+:Author: Manuel Pichler
+:Revision: $Rev$
+:Date: $Date$
+:Status: Draft
+
+.. contents::
+
+Scope
+=====
+
+The scope of this document is to descibe an annotation enhancement for the
+PersistentObject component.
+
+The general idea behind this proposal is to provide an additional mechanism for
+the persistent object definition with plain POPOs (Plain Old PHP Objects), which
+means all information is stored in a single place and that there is no need of
+an external definition file.
+
+Introduction and arrangement
+============================
+
+This proposal is inspired by the new Java EJB 3.0 specification that introduces
+the facility to declare persistent objects/properties with source code
+annotations. 
+
+Persistent Annotations
+======================
+
+This section describes required annotations to describe the current definition
+files within the domain object class files.
+
+Annotation Tags
+---------------
+
+@Persistent
+  The persistent annotation must be placed in the class level doc block to
+  mark a class as persistable. This tag also achieves a second function, the
+  connection to the database table, whose name must be passed as a tag argument.
+  
+  Allowed annotation parameters
+  
+  - table: This parameter has the database table name as value. For every
+    persistent class this parameter is mandatory.
+
+  Example: ::
+
+    @Persistent TableName
+
+@Property
+  The property annotation describes a persistent object property. For real
+  object properties this tag should be declared in the doc block related to the
+  property. In addition to the property doc comment this annotation must be
+  applicable independent of a concrete property in connection with magic
+  properties. Imaginable places are the class level doc block or multiple
+  annotation tags in the doc block of single array property (e.g. $properties).
+  
+  Allowed annotation parameters
+  
+  - property: This parameter contains the property name that's used in the
+    object state array. For all magic properties this value is mandatory but for
+    concrete properties it would be nice to allow recycling of property names and
+    to make this optional.
+  
+  - column: The column parameter refers to the database column name that maps
+    to the object property. This parameter is mandatory.
+  
+  - type: This parameter reflects the property type. The type parameter is
+    mandatory and uses a limited set of possible values.
+    
+      - string
+      
+      - int
+      
+      - float
+      
+      - array
+      
+      - object
+
+   Example: ::
+
+    <<example here>>
+
+<<Object und Array sind in PersistentObject nicht implementiert!>>
+
+@IdProperty
+  This annotation declares the persistent object identifier property. For this
+  tag the same placement rules apply, as for normal @Property annotations.
+  
+  Allowed annotation parameters
+  
+  - property: This parameter contains the property name that's used in the
+    object state array. For all magic properties this value is mandatory but for
+    concrete properties it would be nice to allow recycling of property names and
+    to make this optional.
+  
+  - column: The column parameter refers to the database column name that maps
+    to the object property. This parameter is mandatory.
+  
+  - generator: The generator parameter is mandatory and defines the used object
+    identifier generation strategy. This property has a limited set of possible
+    values as shown in the following list.
+  
+    - manual
+    
+    - native
+    
+    - sequence
+
+<<Ich würde die echten Klassennamen als Parameter verwenden, um eigene
+Implementierungen zu ermöglichen>>
+
+@OneToOne
+  With this annotation a relation (1:1) can be defined. Possible notation scopes
+  are are the class level doc block, which will mean the object identifier is one
+  part of the relation, and a property comment block, which marks the property
+  value as relation key.
+  
+  Instead of this context based approach one or more nested @Column annotations
+  can be used to express the object relation.
+
+  Allowed annotation parameters
+  
+  - class: This mandatory parameter contains the name of the associated class.
+  
+  - cascade: This optional parameter affects the delete behaviour. The parameter
+    values are limited to:
+    
+    - true
+    
+    - false
+
+@OneToMany
+  Using this annotation, a relation (1:n) can be defined. Possible notation
+  scopes are the same as for the @OneToOne annotation and it accepts nested
+  @Column annotations, too.
+
+  Allowed annotation parameters
+  
+  - class: This mandatory parameter contains the name of the associated class.
+  
+  - cascade: This optional parameter affects the delete behaviour. The parameter
+    values are limited to:
+    
+    - true
+    
+    - false
+
+@ManyToOne
+  The @ManyToOne annotation describes a relation (n:1). Possible notation scopes
+  are the same as for the @OneToOne annotation and it accepts nested @Column
+  annotations, too.
+
+  Allowed annotation parameters
+  
+  - class: This mandatory parameter contains the name of the associated class.
+  
+  - cascade: This optional parameter affects the delete behaviour. The parameter
+    values are limited to:
+    
+    - true
+    
+    - false
+
+@ManyToMany
+  
+
+  Allowed annotation parameters
+  
+  - class: This mandatory parameter contains the name of the associated class.
+  
+  - cascade: This optional parameter affects the delete behaviour. The parameter
+    values are limited to:
+    
+    - true
+    
+    - false
+
+@Column
+  Allowed annotation parameters
+  
+  - table:
+  
+  - column:
+  
+  - referenceColumn:
+  
+Design
+======
+
+The design described in this draft is strongly affected by a previous
+Proof-of-Concept and serves only for the illustration.
+The presented reflection design regards a reflection class/property as a tree
+and uses the visitor pattern to traverse all nodes. There are other flat
+solutions like the SCA_AnnotationReader, which can be found here `SCA`_.
+
+In this draft the core annotation design is not part of persistent object
+namespace and has its own component namespace. The idea behind this partitioning
+is that annotation could also be useful in other components.
+
+.. _`SCA`: http://pecl.php.net/get/SCA_SDO
+
+ezcReflectionAnnotated
+----------------------
+
+This interface describes the common behaviour for reflection objects that
+provide access to annotations. 
+
+::
+
+    <?php
+    interface ezcReflectionAnnotated
+    {
+        function getDocComment();
+        function hasAnnotation( $name );
+        function getAnnotation( $name );
+        function getAnnotations( $name = null );
+    }
+    ?>
+
+ezcReflectionAnnotation
+-----------------------
+
+This interface describes that base methods for each concrete annotation. It is
+inspired by the ezc struct classes.
+
+::
+
+    <?php
+    interface ezcReflectionAnnotation extends ezcReflectionNode
+    {
+        function __get( $name );
+        function __set( $name, $value );
+    }
+    ?>
+    
+ezcReflectionAnnotations
+-----------------------------
+
+The ezcReflectionAnnotations class is a kind of collection that encapsulates the
+common behaviour for all ezcReflectionAnnotated implementations. The context
+object is passed to the constructor where the annotations are extracted.
+
+::
+
+    <?php
+    class ezcReflectionAnnotations
+    {
+        function __construct( ezcReflectionAnnotated $annotated ) {}
+        function hasAnnotation( $name ) {}
+        function getAnnotation( $name ) {}
+        function getAnnotations( $name = null ) {}
+    }
+    ?>
+
+ezcReflectionNode
+-----------------
+
+Each node in the reflection tree must implement this interface to allow later
+tree traversions.
+
+::
+
+    <?php
+    interface ezcReflectionNode
+    {
+        function accept( ezcReflectionVisitor $visitor );
+    }
+    ?>
+
+ezcReflectionClass
+------------------
+
+::
+
+    <?php
+    class ezcReflectionClass extends ReflectionClass
+        implements ezcReflectionNode, ezcReflectionAnnotated
+    {
+        public function getProperties()
+        {
+            // Overload code
+        }
+        
+        public function getProperty( $name )
+        {
+            // Overload code
+        }
+    }
+    ?>
+
+ezcReflectionProperty
+---------------------
+
+::
+
+    <?php
+    class ezcReflectionProperty extends ReflectionProperty
+        implements ezcReflectionAnnotated, ezcReflectionNode
+    {
+    
+    }
+    ?>
+    
+ezcReflectionVisitor
+--------------------
+
+This interface describes a basic visitor for a reflection/annotation object
+tree. This interface could be extended for special tasks.
+
+::
+
+    <?php
+    interface ezcReflectionVisitor
+    {
+        function visitAnnotation( ezcReflectionAnnotation $annotation );
+        function visitClass( ezcReflectionClass $class );
+        function visitProperty( ezcReflectionProperty $property );
+    }
+    ?>
+
+ezcPersistentPersistentAnnotation
+---------------------------------
+
+::
+
+    <?php
+    class ezcPersistentPersistentAnnotation implements ezcReflectionAnnotation
+    {
+        protected $properties = array(
+            "class"  =>  "Person",
+            "table"  =>  "persons"
+        );
+        
+        public function accept( ezcPersistentVisitor $visitor )
+        {
+            $visitor->visitPersistentAnnotation( $this );
+        }
+    }
+    ?>
+
+ezcPersistentPropertyBaseAnnotation
+-----------------------------------
+
+An abstract base class for both property types.
+
+::
+
+    <?php
+    abstract class ezcPersistentPropertyBaseAnnotation
+        implements ezcReflectionAnnotation
+    {
+    
+    }
+    ?>
+
+
+ezcPersistentPropertyAnnotation
+-------------------------------
+
+::
+
+    <?php
+    class ezcPersistentPropertyAnnotation implements ezcReflectionAnnotation
+    {
+        
+    }
+    ?>
+
+Usage
+=====
+
+Basic definitions
+-----------------
+
+These examples show the basic usage of annotations in a php classes.
+
+Real property annotations
+`````````````````````````
+The following class definition demonstrates the usage of property annotations
+for real properties.
+
+::
+
+    <?php
+    /**
+     * @Persistent(table="persons")
+     */
+    class Person
+    {
+        /**
+         * @IdProperty(column="person_id",generator="native")
+         */
+        private $id = null;
+        
+        /**
+         * @Property(column="full_name",type="string")
+         */
+        private $name = "";
+        
+        /**
+         * @Property(column="age",type="int")
+         */
+        private $age = 0;
+        
+        // getState() / setState()
+    }
+    ?>
+
+Magic property annotations
+``````````````````````````
+
+The following class definition show the usage of annotations for magic
+properties. This example uses the property parameter to associate the different
+$properties elements with their database columns.
+
+::
+
+    <?php
+    /**
+     * @Persistent(table="persons")
+     */
+    class Person
+    {
+        /**
+         * @IdProperty(property="id",column="person_id",generator="native")
+         * @Property(property="name",column="full_name",type="string")
+         * @Property(property="age",column="age",type="int")
+         */
+        private $properties = array(
+            "id"    =>  null,
+            "name"  =>  "",
+            "age"   =>  0
+        );
+        
+        // __get() / __set() / __getState() / __setState()
+    }
+    ?>
+
+Mixed property annotations
+``````````````````````````
+
+The following example shows a mixed version of persistent properties.
+
+::
+
+    <?php
+    /**
+     * @Persistent(table="persons")
+     */
+    class Person
+    {
+        /**
+         * @IdProperty(column="person_id",generator="native")
+         */
+        private $id = null;
+        
+        /**
+         * @Property(property="name",column="full_name",type="string")
+         * @Property(property="age",column="age",type="int")
+         */
+        private $properties = array(
+            "name"  =>  "",
+            "age"   =>  0
+        );
+        
+        // __get() / __set() / __getState() / __setState()
+    }
+    ?>
+    
+Generated definition file
+`````````````````````````
+
+All three example lead to the same result as it is to be seen in the following
+example.
+
+::
+
+    <?php
+    $def = new ezcPersistentObjectDefinition();
+    $def->table = "persons";
+    $def->class = "Person";
+    
+    $def->idProperty = new ezcPersistentObjectIdProperty();
+    $def->idProperty->columnName = "person_id";
+    $def->idProperty->propertyName = "id";
+    $def->idProperty->generator = new ezcPersistentGeneratorDefinition(
+        "ezcPersistentNativeGenerator"
+    );
+
+    $def->properties["name"] = new ezcPersistentObjectProperty();
+    $def->properties["name"]->columnName = "full_name";
+    $def->properties["name"]->propertyName = "name";
+    $def->properties["name"]->propertyType = ezcPersistentObjectProperty::PHP_TYPE_STRING;
+
+    $def->properties["age"] = new ezcPersistentObjectProperty();
+    $def->properties["age"]->columnName = "age";
+    $def->properties["age"]->propertyName = "age";
+    $def->properties["age"]->propertyType = ezcPersistentObjectProperty::PHP_TYPE_INT;
+
+    return $def;
+    ?>
+
+Relations
+---------
+
+Simple object to object relation
+````````````````````````````````
+
+This example shows two types of relation, one-to-many and the one-to-one. It
+uses the available annotations from both classes for the generation process
+which results in short annotation tags and not duplicated information.
+
+::
+
+    <?php
+    /**
+     * @Persistent(table="persons")
+     * @OneToMany(class="Address",cascade="true")
+     */
+    class Person
+    {
+        /**
+         * @IdProperty(column="person_id",generator="native")
+         */
+        private $id = null;
+    }
+    ?>
+
+::
+
+    <?php
+    /**
+     * @Persistent(table="addresses")
+     */
+    class Address
+    {
+        /**
+         * @IdProperty(column="address_id",generator="native")
+         */
+        private $id = null;
+        
+        /**
+         * @Property(column="person_fid",type="int")
+         * @OneToOne(class="Person")
+         */
+        private $person = null;
+    }
+    ?>
+
+If the definition file generator finds the @OneToMany annotation in class
+Person, which has no additional @Column annotation, he knows that the object
+identifier is used to connect both classes. In the given case this is person_id.
+Then the generator opens the associated class and extracts the database table.
+Finally the generator searches for a back reference to the Person class and
+finds the $person property with its column person_fid.
+
+::
+
+    <?php
+    $def = new ezcPersistentObjectDefinition();
+    $def->table = "persons";
+    $def->class = "Person";
+    
+    $def->idProperty = new ezcPersistentObjectIdProperty();
+    $def->idProperty->columnName = "person_id";
+    $def->idProperty->propertyName = "id";
+    $def->idProperty->generator = new ezcPersistentGeneratorDefinition(
+        "ezcPersistentNativeGenerator"
+    );
+    
+    $def->relations["Address"] = new ezcPersistentOneToManyRelation( "persons", "addresses" );
+    $def->relations["Address"]->columnMap = array(
+        new ezcPersistentSingleTableMap( "person_id", "person_fid" )
+    );
+    $def->relations["Address"]->cascade = true;
+    
+    return $def;
+    ?>
+
+
+Multi column relation
+`````````````````````
+
+::
+
+    <?php
+    /**
+     * @Persistent(table="persons")
+     * @OneToMany(class="Address",{
+     *   @Column(column="firstname",referenceColumn="person_firstname"),
+     *   @Column(column="lastname",referenceColumn="person_lastname")
+     * })
+     */
+    class Person
+    {
+    
+    }
+    ?>
+
+::
+
+    <?php
+    $def = new ezcPersistentObjectDefinition();
+    $def->table = "persons";
+    $def->class = "Person";
+    
+    $def->relations["Address"] = new ezcPersistentOneToManyRelation( "persons", "addresses" );
+    $def->relations["Address"]->columnMap = array(
+        new ezcPersistentSingleTableMap( "firstname", "person_firstname" ), 
+        new ezcPersistentSingleTableMap( "lastname", "person_lastname" )
+    );
+    
+    return $def;
+    ?>
+
+
+
+..
+   Local Variables:
+   mode: rst
+   fill-column: 79
+   End: 
+   vim: et syn=rst tw=79
